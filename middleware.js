@@ -1,19 +1,21 @@
-import { sha256 } from './js/sha256.js'; // 需新建或引入SHA-256实现
+import { sha256 } from './js/sha256.js';
 
-// Vercel Middleware to inject environment variables
-export default async function middleware(request) {
+// EdgeOne Makers Middleware to inject environment variables
+export async function middleware(context) {
+  const { request, env, next } = context;
+
   // Get the URL from the request
   const url = new URL(request.url);
-  
+
   // Only process HTML pages
   const isHtmlPage = url.pathname.endsWith('.html') || url.pathname.endsWith('/');
   if (!isHtmlPage) {
-    return; // Let the request pass through unchanged
+    return next(); // Let the request pass through unchanged
   }
 
-  // Fetch the original response
-  const response = await fetch(request);
-  
+  // Get the original response
+  const response = await next();
+
   // Check if it's an HTML response
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('text/html')) {
@@ -22,22 +24,22 @@ export default async function middleware(request) {
 
   // Get the HTML content
   const originalHtml = await response.text();
-  
+
   // Replace the placeholder with actual environment variable
   // If PASSWORD is not set, replace with empty string
-  const password = process.env.PASSWORD || '';
+  const password = env.PASSWORD || '';
   let passwordHash = '';
   if (password) {
     passwordHash = await sha256(password);
   }
 
-  const adminpassword = process.env.ADMINPASSWORD || '';
+  const adminpassword = env.ADMINPASSWORD || '';
   let adminpasswordHash = '';
   if (adminpassword) {
-    adminpasswordHash = await sha256(adminpassword); // 修复变量名
+    adminpasswordHash = await sha256(adminpassword);
   }
-  
-  // 合并两次替换为一次操作
+
+  // Merge the two replacements into one operation
   let modifiedHtml = originalHtml
     .replace(
       'window.__ENV__.PASSWORD = "{{PASSWORD}}";',
@@ -48,7 +50,7 @@ export default async function middleware(request) {
       `window.__ENV__.ADMINPASSWORD = "${adminpasswordHash}"; // SHA-256 hash`
     );
 
-  // 修复Response构造
+  // Return the modified response
   return new Response(modifiedHtml, {
     status: response.status,
     statusText: response.statusText,
