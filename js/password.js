@@ -54,6 +54,10 @@ function isVerified(passwordType = 'PASSWORD') {
     try {
         if (!isPasswordProtected()) return true;
 
+        // 服务端整站门禁已通过（middleware 校验 libretv_auth cookie 后注入的标记），
+        // 普通密码视为已验证，避免与门禁形成重复登录层
+        if (passwordType === 'PASSWORD' && window.__LIBRETV_AUTH_PASSED__ === true) return true;
+
         const storageKey = passwordType === 'PASSWORD'
             ? PASSWORD_CONFIG.localStorageKey
             : PASSWORD_CONFIG.adminLocalStorageKey;
